@@ -274,6 +274,9 @@ kbd{background:var(--chip);border:1px solid var(--line);border-radius:5px;paddin
 .bar .time{color:var(--muted);font-size:.8rem;white-space:nowrap}
 .ctl{display:flex;gap:6px;align-items:center}
 .ctl button{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--chip);color:var(--ink);font-size:1rem;cursor:pointer}
+.ctl a.ytb{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--chip);color:var(--ink);font-size:1.1rem;display:flex;align-items:center;justify-content:center;text-decoration:none;font-weight:700}
+.pbtn.pyt{right:34px;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;line-height:1}
+.player.min .pbtn.pyt{right:28px}
 .ctl button.main{background:var(--accent);color:#fff;border-color:var(--accent);width:46px;height:46px}
 .ctl button.on{outline:2px solid var(--accent)}
 @media (max-width:640px){.bar .time{display:none}.bar img{display:none}.ctl button.opt{display:none}}
@@ -330,6 +333,7 @@ kbd{background:var(--chip);border:1px solid var(--line);border-radius:5px;paddin
 
   <div class="player" id="player">
     <div class="frame"><div id="yt"></div></div>
+    <a class="pbtn pyt" id="pyt" href="https://www.youtube.com/" target="_blank" rel="noopener" aria-label="Open in YouTube" title="Open in YouTube app">&#8599;</a>
     <button class="pbtn" id="pmin" type="button" aria-label="Minimize or enlarge video" title="Minimize / enlarge">&#8722;</button>
   </div>
 
@@ -369,6 +373,7 @@ kbd{background:var(--chip);border:1px solid var(--line);border-radius:5px;paddin
       <button id="next" aria-label="Next">⏭</button>
       <button id="shufBtn" class="opt" aria-label="Shuffle" title="Shuffle (S)">🔀</button>
       <button id="qBtn" aria-label="Queue" title="Queue (Q)">☰</button>
+      <a id="bYT" class="ytb" href="https://www.youtube.com/" target="_blank" rel="noopener" aria-label="Open in YouTube" title="Open in YouTube app">↗</a>
       <button id="shareSong" class="opt" aria-label="Share song" title="Share this song">🔗</button>
     </div>
   </div>
@@ -1180,6 +1185,14 @@ function updateUI(){
   if (s) {
     $("bImg").src = thumb(s.id); $("bT").textContent = s.t; $("bA").textContent = s.a;
     document.title = (playing ? "▶ " : "") + s.t + " · Mishra ji Desi vibe";
+    var yl = "https://www.youtube.com/watch?v=" + s.id;
+    $("bYT").href = yl; $("pyt").href = yl;
+    if ("mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({ title: s.t, artist: s.a, album: "Mishra ji Desi vibe", artwork: [{ src: thumb(s.id), sizes: "480x360", type: "image/jpeg" }] });
+        navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+      } catch(e){}
+    }
   } else { document.title = "Mishra ji Desi vibe"; }
   $("pp").textContent = playing ? "❚❚" : "▶";
   $("shufBtn").classList.toggle("on", shuffleOn);
@@ -1191,6 +1204,22 @@ function playSong(i, scroll){
   if (ready && player) { player.loadVideoById(songs[i].id); } else { pending = i; }
   updateUI();
 }
+if ("mediaSession" in navigator) {
+  var msh = function(a, f){ try { navigator.mediaSession.setActionHandler(a, f); } catch(e){} };
+  msh("play", function(){ if (ready && player && cur >= 0) player.playVideo(); else toggle(); });
+  msh("pause", function(){ if (ready && player) player.pauseVideo(); });
+  msh("nexttrack", function(){ step(1); });
+  msh("previoustrack", function(){ step(-1); });
+  msh("seekforward", function(){ seek(10); });
+  msh("seekbackward", function(){ seek(-10); });
+}
+var wasPlaying = false;
+document.addEventListener("visibilitychange", function(){
+  if (document.visibilityState === "hidden") { wasPlaying = playing; }
+  else if (wasPlaying && ready && player && cur >= 0) {
+    try { if (player.getPlayerState() !== 1) player.playVideo(); } catch(e){}
+  }
+});
 function step(dir){
   var q = queue();
   if (!q.length) return;
